@@ -1,187 +1,135 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Aim Trainer Global</title>
-  <style>
-    body { margin:0; font-family:Arial, sans-serif; background:#111; color:#fff; text-align:center; }
-    header { background:#222; padding:1rem; }
-    #gameArea { position:relative; width:100%; height:65vh; background:#000; overflow:hidden; }
-    .target { position:absolute; border-radius:50%; cursor:pointer; transition:transform 0.2s; }
-    .target:hover { transform:scale(1.2); }
-    #scoreboard { margin:1rem; font-size:1.2rem; }
-    button { margin:0.5rem; padding:0.5rem 1rem; }
-    #settings, #profile { margin:1rem; }
-    #leaderboard { margin:1rem; background:#222; padding:1rem; border-radius:8px; }
-  </style>
+<meta charset="UTF-8">
+<title>Aim Trainer Deluxe</title>
+<style>
+  body { margin:0; overflow:hidden; background:linear-gradient(135deg,#1a2a6c,#b21f1f,#fdbb2d); color:#fff; font-family:sans-serif; }
+  #menu { position:absolute; top:0; left:0; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(0,0,0,0.7); }
+  .menu-btn { margin:0.5rem; padding:1rem 2rem; border:none; border-radius:10px; background:#ff416c; color:#fff; cursor:pointer; }
+  #hud { position:absolute; top:10px; left:50%; transform:translateX(-50%); display:flex; gap:30px; font-size:1.2rem; text-shadow:0 0 10px #0ff; }
+  #crosshair { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); width:30px; height:30px; }
+  #crosshair:before,#crosshair:after{content:'';position:absolute;background:#0ff;}
+  #crosshair:before{top:50%;left:0;width:100%;height:2px;}
+  #crosshair:after{left:50%;top:0;width:2px;height:100%;}
+</style>
 </head>
 <body>
-  <header>
-    <h1>Aim Trainer Global</h1>
-    <button onclick="startGame('classic')">Classic</button>
-    <button onclick="startGame('timed')">Timed</button>
-    <button onclick="startGame('rapid')">Rapid</button>
-    <button onclick="startGame('accuracy')">Accuracy</button>
-    <button onclick="startGame('endurance')">Endurance</button>
-    <button onclick="startGame('reaction')">Reaction</button>
-    <button onclick="toggleMultiplayer()">Multiplayer</button>
-  </header>
-  <div id="profile">
-    Player Name: <input type="text" id="playerName" placeholder="Enter name">
-    <button onclick="saveProfile()">Save Profile</button>
-  </div>
-  <div id="settings">
-    Target Size: <input type="number" id="size" value="40"> px
-    Spawn Rate: <input type="number" id="rate" value="1000"> ms
-    Duration: <input type="number" id="duration" value="30"> s
-  </div>
-  <div id="scoreboard">Score: 0 | Rank: Beginner</div>
-  <div id="gameArea"></div>
-  <div id="leaderboard"><h3>Leaderboard</h3><ul id="scores"></ul></div>
+<div id="menu">
+  <h1>Aim Trainer</h1>
+  <input id="playerName" placeholder="Name">
+  <button class="menu-btn" onclick="startGame('classic')">Classic</button>
+  <button class="menu-btn" onclick="startGame('timed')">Timed</button>
+  <button class="menu-btn" onclick="startGame('rapid')">Rapid</button>
+  <button class="menu-btn" onclick="startGame('accuracy')">Accuracy</button>
+  <button class="menu-btn" onclick="startGame('endurance')">Endurance</button>
+  <button class="menu-btn" onclick="startGame('movingball')">Moving Ball</button>
+  <ul id="scores"></ul>
+</div>
+<div id="crosshair"></div>
+<div id="hud"><div id="timer">Time: 60</div><div id="scoreboard">Score: 0</div><div id="accuracy">Accuracy: 0%</div></div>
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+<script>
+let scene,camera,renderer,score=0,player="Guest",mode="classic",targets=[],roundTime=60,timerInterval,animationId;
+let shots=0,hits=0,ballTarget,lockTime=0;
 
-  <script>
-    // ---------------- GAME LOGIC ----------------
-    let score=0, mode='classic', timer=null, gameRunning=false, hits=0, misses=0;
-    let multiplayer=false, currentPlayer=1, players={1:{score:0},2:{score:0}};
+function startGame(m){
+  if(renderer){renderer.domElement.remove();cancelAnimationFrame(animationId);}
+  clearInterval(timerInterval);
+  player=document.getElementById('playerName').value||"Guest";
+  mode=m;score=0;shots=0;hits=0;lockTime=0;
+  if(mode==="timed") roundTime=30;
+  else if(mode==="endurance") roundTime=120;
+  else roundTime=60;
+  document.getElementById('menu').style.display='none';
+  initScene();document.body.requestPointerLock();startTimer();
+  if(mode==="movingball") spawnMovingBall(); else spawnTarget();
+}
 
-    function startGame(selectedMode){
-      mode=selectedMode; score=0; hits=0; misses=0; updateScore();
-      clearInterval(timer); gameRunning=true;
-      document.getElementById('gameArea').innerHTML='';
-      spawnTarget();
-      let duration=parseInt(document.getElementById('duration').value)*1000;
-      if(mode==='timed'||mode==='accuracy'||mode==='reaction'){
-        setTimeout(()=>endGame(),duration);
-      } else if(mode==='rapid'){
-        timer=setInterval(spawnTarget,parseInt(document.getElementById('rate').value));
-      } else if(mode==='endurance'){
-        timer=setInterval(spawnTarget,1000);
-      }
-    }
+function initScene(){
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,1000);
+  renderer=new THREE.WebGLRenderer();renderer.setSize(innerWidth,innerHeight);
+  document.body.appendChild(renderer.domElement);
+  let light=new THREE.PointLight(0xffffff,1,100);light.position.set(0,0,10);scene.add(light);
+  let starGeo=new THREE.BufferGeometry(),pos=[];for(let i=0;i<500;i++)pos.push((Math.random()-0.5)*200,(Math.random()-0.5)*200,(Math.random()-0.5)*200);
+  starGeo.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  scene.add(new THREE.Points(starGeo,new THREE.PointsMaterial({color:0xffffff})));
+  animate();
+}
 
-    function spawnTarget(){
-      if(!gameRunning) return;
-      const area=document.getElementById('gameArea');
-      const target=document.createElement('div');
-      target.className='target';
-      let size=parseInt(document.getElementById('size').value);
-      if(score>20) size-=10; if(score>50) size-=10;
-      target.style.width=size+'px'; target.style.height=size+'px';
-      target.style.top=Math.random()*(area.clientHeight-size)+'px';
-      target.style.left=Math.random()*(area.clientWidth-size)+'px';
-      target.style.background=randomColor();
-      target.onclick=()=>{ score++; hits++; updateScore(); area.removeChild(target); playSound(); };
-      area.appendChild(target);
-      setTimeout(()=>{ if(area.contains(target)){ area.removeChild(target); misses++; } },2000);
-    }
+let yaw=0,pitch=0;
+document.addEventListener('mousemove',e=>{
+  if(document.pointerLockElement===document.body){
+    yaw-=e.movementX*0.002;pitch-=e.movementY*0.002;
+    camera.rotation.order="YXZ";camera.rotation.y=yaw;camera.rotation.x=pitch;
+  }
+});
+document.addEventListener('click',()=>{
+  if(document.pointerLockElement===document.body&&mode!=="movingball"){
+    shots++;
+    if(mode==="accuracy" && shots>=20){ endGame(); return; }
+    let r=new THREE.Raycaster();r.setFromCamera(new THREE.Vector2(0,0),camera);
+    let hit=r.intersectObjects(targets);
+    if(hit.length>0){scene.remove(hit[0].object);targets=[];hits++;score++;updateHUD();setTimeout(spawnTarget,mode==="rapid"?200:500);}else updateHUD();
+  }
+});
 
-    function updateScore(){
-      let rank='Beginner';
-      if(score>10) rank='Intermediate';
-      if(score>25) rank='Advanced';
-      if(score>50) rank='Pro';
-      if(score>100) rank='Master';
-      if(score>200) rank='Legend';
-      document.getElementById('scoreboard').innerText=`Player ${currentPlayer} | Score: ${score} | Rank: ${rank}`;
-    }
+function spawnTarget(){
+  if(targets.length>0)return;
+  let c=document.createElement('canvas');c.width=256;c.height=256;let ctx=c.getContext('2d');
+  for(let i=5;i>0;i--){ctx.beginPath();ctx.arc(128,128,i*25,0,Math.PI*2);ctx.fillStyle=i%2?'black':'red';ctx.fill();}
+  ctx.beginPath();ctx.arc(128,128,10,0,Math.PI*2);ctx.fillStyle='yellow';ctx.fill();
+  let tex=new THREE.CanvasTexture(c);
+  let g=new THREE.CircleGeometry(mode==="endurance"?0.7:1,64);
+  let t=new THREE.Mesh(g,new THREE.MeshBasicMaterial({map:tex,transparent:true}));
+  t.position.set(Math.random()*10-5,Math.random()*5-2.5,-(Math.random()*20+5));scene.add(t);targets=[t];
+}
 
-    function endGame(){
-      gameRunning=false;
-      let accuracy=(hits/(hits+misses))*100 || 0;
-      alert(`Player ${currentPlayer} Game Over! Final Score: ${score}, Accuracy: ${accuracy.toFixed(1)}%`);
-      saveScore(score,mode,accuracy);
-      if(multiplayer){
-        players[currentPlayer].score=score;
-        currentPlayer=currentPlayer===1?2:1;
-        alert(`Now it's Player ${currentPlayer}'s turn!`);
-      }
-    }
+function spawnMovingBall(){
+  ballTarget=new THREE.Mesh(new THREE.SphereGeometry(0.5,32,32),new THREE.MeshBasicMaterial({color:0x0f0}));
+  ballTarget.position.set(0,0,-10);scene.add(ballTarget);
+}
 
-    function saveScore(score,mode,accuracy){
-      let player=document.getElementById('playerName').value||`Player ${currentPlayer}`;
-      let scores=JSON.parse(localStorage.getItem('scores')||'[]');
-      scores.push({player,score,mode,accuracy,date:new Date().toLocaleString()});
-      localStorage.setItem('scores',JSON.stringify(scores));
-      renderScores();
+function animate(){
+  animationId=requestAnimationFrame(animate);
+  if(mode==="movingball"&&ballTarget){
+    ballTarget.position.x=Math.sin(Date.now()*0.001)*5;
+    ballTarget.position.y=Math.cos(Date.now()*0.0015)*3;
+    let r=new THREE.Raycaster();r.setFromCamera(new THREE.Vector2(0,0),camera);
+    if(r.intersectObject(ballTarget).length>0){lockTime+=0.016;score=Math.floor(lockTime);updateHUD();}
+  }
+  renderer.render(scene,camera);
+}
 
-      // Send to backend (if running with Node)
-      fetch('/score',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({player,score,mode,accuracy})
-      }).catch(()=>{});
-    }
+function startTimer(){
+  let time=roundTime;document.getElementById('timer').innerText="Time: "+time;
+  timerInterval=setInterval(()=>{time--;document.getElementById('timer').innerText="Time: "+time;if(time<=0){clearInterval(timerInterval);endGame();}},1000);
+}
 
-    async function loadOnlineScores(){
-      try{
-        let res=await fetch('/scores');
-        let scores=await res.json();
-        let list=document.getElementById('scores'); list.innerHTML='';
-        scores.forEach(s=>{
-          let li=document.createElement('li');
-          li.innerText=`${s.date} - ${s.player} - ${s.mode} - Score: ${s.score} - Acc: ${s.accuracy.toFixed(1)}%`;
-          list.appendChild(li);
-        });
-      }catch(e){}
-    }
+function endGame(){alert(`Game Over! Score: ${score}`);saveScore();document.getElementById('menu').style.display='flex';}
 
-    function renderScores(){
-      let scores=JSON.parse(localStorage.getItem('scores')||'[]');
-      let list=document.getElementById('scores'); list.innerHTML='';
-      scores.slice(-10).reverse().forEach(s=>{
-        let li=document.createElement('li');
-        li.innerText=`${s.date} - ${s.player} - ${s.mode} - Score: ${s.score} - Acc: ${s.accuracy.toFixed(1)}%`;
-        list.appendChild(li);
-      });
-    }
+function updateHUD(){
+  document.getElementById('scoreboard').innerText="Score: "+score;
+  let acc=(shots>0)?Math.round((hits/shots)*100):0;
+  document.getElementById('accuracy').innerText="Accuracy: "+(mode==="movingball"?"N/A":acc+"%");
+}
 
-    function randomColor(){
-      const colors=['red','blue','green','yellow','purple','orange'];
-      return colors[Math.floor(Math.random()*colors.length)];
-    }
+function saveScore(){
+  let scores=JSON.parse(localStorage.getItem('scores')||'[]');
+  scores.push({player,score,mode,accuracy:(shots>0?Math.round((hits/shots)*100):0)});
+  localStorage.setItem('scores',JSON.stringify(scores));renderScores();
+}
 
-    function playSound(){
-      const audio=new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');
-      audio.play();
-    }
-
-    function toggleMultiplayer(){
-      multiplayer=!multiplayer;
-      alert(multiplayer?"Multiplayer ON":"Multiplayer OFF");
-    }
-
-    function saveProfile(){
-      let name=document.getElementById('playerName').value;
-      localStorage.setItem('playerName',name);
-      alert(`Profile saved as ${name}`);
-    }
-
-    renderScores();
-    loadOnlineScores();
-
-    // ---------------- BACKEND SERVER ----------------
-    // This part only works if you run with Node.js (not in browser)
-    if(typeof require!=="undefined"){
-      const express=require("express");
-      const cors=require("cors");
-      const app=express();
-      let scores=[];
-
-      app.use(cors());
-      app.use(express.json());
-
-      app.post("/score",(req,res)=>{
-        const {player,score,mode,accuracy}=req.body;
-        scores.push({player,score,mode,accuracy,date:new Date().toISOString()});
-        res.json({status:"ok"});
-      });
-
-      app.get("/scores",(req,res)=>{
-        res.json(scores.slice(-20).reverse());
-      });
-
-      app.listen(3000,()=>console.log("Server running on http://localhost:3000"));
-    }
-  </script>
+function renderScores(){
+  let scores=JSON.parse(localStorage.getItem('scores')||'[]');
+  let list=document.getElementById('scores');list.innerHTML='';
+  scores.slice(-10).reverse().forEach(s=>{
+    let li=document.createElement('li');
+    li.innerText=`${s.player} - ${s.mode} - Score: ${s.score} - Acc: ${s.accuracy}%`;
+    list.appendChild(li);
+  });
+}
+</script>
 </body>
 </html>
