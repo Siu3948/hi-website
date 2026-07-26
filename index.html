@@ -2,36 +2,60 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Aim Trainer Pro</title>
+  <title>Aim Trainer Global</title>
   <style>
     body { margin:0; font-family:Arial, sans-serif; background:#111; color:#fff; text-align:center; }
     header { background:#222; padding:1rem; }
-    #gameArea { position:relative; width:100%; height:80vh; background:#000; overflow:hidden; }
-    .target { position:absolute; width:40px; height:40px; border-radius:50%; background:red; cursor:pointer; }
-    #scoreboard { margin:1rem; }
+    #gameArea { position:relative; width:100%; height:65vh; background:#000; overflow:hidden; }
+    .target { position:absolute; border-radius:50%; cursor:pointer; transition:transform 0.2s; }
+    .target:hover { transform:scale(1.2); }
+    #scoreboard { margin:1rem; font-size:1.2rem; }
     button { margin:0.5rem; padding:0.5rem 1rem; }
+    #settings, #profile { margin:1rem; }
+    #leaderboard { margin:1rem; background:#222; padding:1rem; border-radius:8px; }
   </style>
 </head>
 <body>
   <header>
-    <h1>Aim Trainer Pro</h1>
-    <button onclick="startGame('classic')">Classic Mode</button>
-    <button onclick="startGame('timed')">Timed Mode</button>
-    <button onclick="startGame('rapid')">Rapid Mode</button>
+    <h1>Aim Trainer Global</h1>
+    <button onclick="startGame('classic')">Classic</button>
+    <button onclick="startGame('timed')">Timed</button>
+    <button onclick="startGame('rapid')">Rapid</button>
+    <button onclick="startGame('accuracy')">Accuracy</button>
+    <button onclick="startGame('endurance')">Endurance</button>
+    <button onclick="startGame('reaction')">Reaction</button>
+    <button onclick="toggleMultiplayer()">Multiplayer</button>
   </header>
+  <div id="profile">
+    Player Name: <input type="text" id="playerName" placeholder="Enter name">
+    <button onclick="saveProfile()">Save Profile</button>
+  </div>
+  <div id="settings">
+    Target Size: <input type="number" id="size" value="40"> px
+    Spawn Rate: <input type="number" id="rate" value="1000"> ms
+    Duration: <input type="number" id="duration" value="30"> s
+  </div>
   <div id="scoreboard">Score: 0 | Rank: Beginner</div>
   <div id="gameArea"></div>
+  <div id="leaderboard"><h3>Leaderboard</h3><ul id="scores"></ul></div>
+
   <script>
-    let score=0, mode='classic', timer=null, gameRunning=false;
+    // ---------------- GAME LOGIC ----------------
+    let score=0, mode='classic', timer=null, gameRunning=false, hits=0, misses=0;
+    let multiplayer=false, currentPlayer=1, players={1:{score:0},2:{score:0}};
 
     function startGame(selectedMode){
-      mode=selectedMode; score=0; updateScore();
+      mode=selectedMode; score=0; hits=0; misses=0; updateScore();
       clearInterval(timer); gameRunning=true;
+      document.getElementById('gameArea').innerHTML='';
       spawnTarget();
-      if(mode==='timed'){
-        setTimeout(()=>endGame(),10000); // 10s timed
+      let duration=parseInt(document.getElementById('duration').value)*1000;
+      if(mode==='timed'||mode==='accuracy'||mode==='reaction'){
+        setTimeout(()=>endGame(),duration);
       } else if(mode==='rapid'){
-        timer=setInterval(spawnTarget,500); // rapid spawn
+        timer=setInterval(spawnTarget,parseInt(document.getElementById('rate').value));
+      } else if(mode==='endurance'){
+        timer=setInterval(spawnTarget,1000);
       }
     }
 
@@ -40,11 +64,15 @@
       const area=document.getElementById('gameArea');
       const target=document.createElement('div');
       target.className='target';
-      target.style.top=Math.random()*(area.clientHeight-40)+'px';
-      target.style.left=Math.random()*(area.clientWidth-40)+'px';
-      target.onclick=()=>{ score++; updateScore(); area.removeChild(target); };
+      let size=parseInt(document.getElementById('size').value);
+      if(score>20) size-=10; if(score>50) size-=10;
+      target.style.width=size+'px'; target.style.height=size+'px';
+      target.style.top=Math.random()*(area.clientHeight-size)+'px';
+      target.style.left=Math.random()*(area.clientWidth-size)+'px';
+      target.style.background=randomColor();
+      target.onclick=()=>{ score++; hits++; updateScore(); area.removeChild(target); playSound(); };
       area.appendChild(target);
-      setTimeout(()=>{ if(area.contains(target)) area.removeChild(target); },2000);
+      setTimeout(()=>{ if(area.contains(target)){ area.removeChild(target); misses++; } },2000);
     }
 
     function updateScore(){
@@ -52,12 +80,107 @@
       if(score>10) rank='Intermediate';
       if(score>25) rank='Advanced';
       if(score>50) rank='Pro';
-      document.getElementById('scoreboard').innerText=`Score: ${score} | Rank: ${rank}`;
+      if(score>100) rank='Master';
+      if(score>200) rank='Legend';
+      document.getElementById('scoreboard').innerText=`Player ${currentPlayer} | Score: ${score} | Rank: ${rank}`;
     }
 
     function endGame(){
       gameRunning=false;
-      alert(`Game Over! Final Score: ${score}`);
+      let accuracy=(hits/(hits+misses))*100 || 0;
+      alert(`Player ${currentPlayer} Game Over! Final Score: ${score}, Accuracy: ${accuracy.toFixed(1)}%`);
+      saveScore(score,mode,accuracy);
+      if(multiplayer){
+        players[currentPlayer].score=score;
+        currentPlayer=currentPlayer===1?2:1;
+        alert(`Now it's Player ${currentPlayer}'s turn!`);
+      }
+    }
+
+    function saveScore(score,mode,accuracy){
+      let player=document.getElementById('playerName').value||`Player ${currentPlayer}`;
+      let scores=JSON.parse(localStorage.getItem('scores')||'[]');
+      scores.push({player,score,mode,accuracy,date:new Date().toLocaleString()});
+      localStorage.setItem('scores',JSON.stringify(scores));
+      renderScores();
+
+      // Send to backend (if running with Node)
+      fetch('/score',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({player,score,mode,accuracy})
+      }).catch(()=>{});
+    }
+
+    async function loadOnlineScores(){
+      try{
+        let res=await fetch('/scores');
+        let scores=await res.json();
+        let list=document.getElementById('scores'); list.innerHTML='';
+        scores.forEach(s=>{
+          let li=document.createElement('li');
+          li.innerText=`${s.date} - ${s.player} - ${s.mode} - Score: ${s.score} - Acc: ${s.accuracy.toFixed(1)}%`;
+          list.appendChild(li);
+        });
+      }catch(e){}
+    }
+
+    function renderScores(){
+      let scores=JSON.parse(localStorage.getItem('scores')||'[]');
+      let list=document.getElementById('scores'); list.innerHTML='';
+      scores.slice(-10).reverse().forEach(s=>{
+        let li=document.createElement('li');
+        li.innerText=`${s.date} - ${s.player} - ${s.mode} - Score: ${s.score} - Acc: ${s.accuracy.toFixed(1)}%`;
+        list.appendChild(li);
+      });
+    }
+
+    function randomColor(){
+      const colors=['red','blue','green','yellow','purple','orange'];
+      return colors[Math.floor(Math.random()*colors.length)];
+    }
+
+    function playSound(){
+      const audio=new Audio('https://actions.google.com/sounds/v1/cartoon/wood_plank_flicks.ogg');
+      audio.play();
+    }
+
+    function toggleMultiplayer(){
+      multiplayer=!multiplayer;
+      alert(multiplayer?"Multiplayer ON":"Multiplayer OFF");
+    }
+
+    function saveProfile(){
+      let name=document.getElementById('playerName').value;
+      localStorage.setItem('playerName',name);
+      alert(`Profile saved as ${name}`);
+    }
+
+    renderScores();
+    loadOnlineScores();
+
+    // ---------------- BACKEND SERVER ----------------
+    // This part only works if you run with Node.js (not in browser)
+    if(typeof require!=="undefined"){
+      const express=require("express");
+      const cors=require("cors");
+      const app=express();
+      let scores=[];
+
+      app.use(cors());
+      app.use(express.json());
+
+      app.post("/score",(req,res)=>{
+        const {player,score,mode,accuracy}=req.body;
+        scores.push({player,score,mode,accuracy,date:new Date().toISOString()});
+        res.json({status:"ok"});
+      });
+
+      app.get("/scores",(req,res)=>{
+        res.json(scores.slice(-20).reverse());
+      });
+
+      app.listen(3000,()=>console.log("Server running on http://localhost:3000"));
     }
   </script>
 </body>
