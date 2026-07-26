@@ -3,194 +3,595 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Valorant Tracker</title>
-
+<title>RANGE — Aim Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
-*{
-    margin:0;
-    padding:0;
-    box-sizing:border-box;
-    font-family:Arial, Helvetica, sans-serif;
-}
+  :root {
+    --bg: #0a0e10;
+    --panel: #12181b;
+    --panel-line: #1e2b2f;
+    --cyan: #4dd9ff;
+    --cyan-dim: #1c4a57;
+    --coral: #ff5d5d;
+    --amber: #ffb347;
+    --text: #d7dee0;
+    --muted: #5e7278;
+    --good: #4ade80;
+  }
 
-body{
-    background:#0f1923;
-    color:white;
-}
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-header{
-    text-align:center;
-    padding:40px;
-    font-size:50px;
-    font-weight:bold;
-    color:#ff4655;
-    letter-spacing:3px;
-}
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    overflow: hidden;
+  }
 
-.search{
-    display:flex;
-    justify-content:center;
-    gap:10px;
-    margin-bottom:40px;
-}
+  .display { font-family: 'Oswald', sans-serif; }
 
-input{
-    width:350px;
-    padding:15px;
-    border:none;
-    border-radius:8px;
-    font-size:18px;
-}
+  #app {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
 
-button{
-    background:#ff4655;
-    color:white;
-    border:none;
-    border-radius:8px;
-    padding:15px 30px;
-    font-size:18px;
-    cursor:pointer;
-    transition:.2s;
-}
+  /* ---------- HUD ---------- */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 24px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--panel-line);
+    z-index: 10;
+  }
 
-button:hover{
-    background:#ff6a77;
-}
+  .brand { display: flex; align-items: baseline; gap: 10px; }
+  .brand .eyebrow {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--muted);
+  }
+  .brand h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: 4px;
+    color: var(--cyan);
+  }
 
-.container{
-    width:90%;
-    max-width:1000px;
-    margin:auto;
-}
+  .hud-stats {
+    display: flex;
+    gap: 28px;
+  }
+  .stat { text-align: right; }
+  .stat .label {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--muted);
+    display: block;
+  }
+  .stat .value {
+    font-family: 'Oswald', sans-serif;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .stat.accent .value { color: var(--cyan); }
+  #time-value.low { color: var(--coral); }
 
-.grid{
-    display:grid;
-    grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
-    gap:20px;
-}
+  /* ---------- PLAY AREA ---------- */
+  #arena {
+    position: relative;
+    flex: 1;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(77,217,255,0.035), transparent 60%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 40px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 40px);
+    cursor: none;
+  }
 
-.card{
-    background:#1b2733;
-    border-radius:12px;
-    padding:20px;
-    border:2px solid #ff4655;
-    text-align:center;
-    box-shadow:0 0 20px rgba(255,70,85,.3);
-}
+  .target {
+    position: absolute;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #ff8080, var(--coral) 70%);
+    box-shadow: 0 0 18px rgba(255,93,93,0.45), inset 0 0 10px rgba(0,0,0,0.35);
+    cursor: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .target::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 50%;
+    border: 2px solid rgba(255,93,93,0.5);
+  }
+  .target .decay-ring {
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+  }
+  .target .core {
+    width: 30%;
+    height: 30%;
+    border-radius: 50%;
+    background: rgba(10,14,16,0.55);
+  }
 
-.card h2{
-    color:#ff4655;
-    margin-bottom:15px;
-}
+  .burst {
+    position: absolute;
+    border-radius: 50%;
+    border: 2px solid var(--amber);
+    pointer-events: none;
+    animation: burst-out 0.35s ease-out forwards;
+  }
+  @keyframes burst-out {
+    from { transform: scale(0.3); opacity: 1; }
+    to { transform: scale(2.2); opacity: 0; }
+  }
 
-.value{
-    font-size:28px;
-    font-weight:bold;
-}
+  .miss-x {
+    position: absolute;
+    color: var(--muted);
+    font-size: 14px;
+    pointer-events: none;
+    animation: miss-fade 0.5s ease-out forwards;
+  }
+  @keyframes miss-fade {
+    from { opacity: 0.9; transform: translateY(0); }
+    to { opacity: 0; transform: translateY(-14px); }
+  }
 
-footer{
-    text-align:center;
-    margin:40px;
-    color:gray;
-}
+  /* custom reticle cursor */
+  #reticle {
+    position: fixed;
+    width: 26px;
+    height: 26px;
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    z-index: 999;
+    display: none;
+  }
+  #reticle svg { width: 100%; height: 100%; }
+
+  /* ---------- OVERLAYS ---------- */
+  .overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10,14,16,0.92);
+    z-index: 20;
+  }
+  .card {
+    width: min(420px, 88vw);
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    padding: 32px;
+    text-align: center;
+  }
+  .card .eyebrow {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--cyan);
+    margin-bottom: 6px;
+  }
+  .card h2 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 30px;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    text-align: left;
+  }
+  .setting-row .label { font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+  .choice-group { display: flex; gap: 6px; }
+  .choice {
+    background: transparent;
+    border: 1px solid var(--panel-line);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .choice:hover { border-color: var(--cyan-dim); color: var(--text); }
+  .choice.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: rgba(77,217,255,0.08);
+  }
+
+  .go-btn {
+    width: 100%;
+    margin-top: 22px;
+    padding: 14px;
+    background: var(--cyan);
+    border: none;
+    color: #04191f;
+    font-family: 'Oswald', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+  }
+  .go-btn:hover { filter: brightness(1.12); }
+
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .result-item {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--panel-line);
+    padding: 12px;
+  }
+  .result-item .label { font-size: 9px; letter-spacing: 2px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .result-item .value { font-family: 'Oswald', sans-serif; font-size: 24px; color: var(--text); }
+  .result-item.hero .value { color: var(--cyan); }
+
+  .hidden { display: none !important; }
+
+  footer {
+    text-align: center;
+    padding: 8px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    background: var(--panel);
+    border-top: 1px solid var(--panel-line);
+  }
 </style>
-
 </head>
 <body>
 
-<header>
-VALORANT TRACKER
-</header>
+<div id="app">
+  <header>
+    <div class="brand">
+      <h1 class="display">RANGE</h1>
+      <span class="eyebrow">AIM TRAINER</span>
+    </div>
+    <div class="hud-stats">
+      <div class="stat">
+        <span class="label">SCORE</span>
+        <span class="value" id="score-value">0</span>
+      </div>
+      <div class="stat">
+        <span class="label">ACCURACY</span>
+        <span class="value" id="acc-value">—</span>
+      </div>
+      <div class="stat">
+        <span class="label">AVG MS</span>
+        <span class="value" id="avg-value">—</span>
+      </div>
+      <div class="stat accent">
+        <span class="label">TIME</span>
+        <span class="value" id="time-value">30</span>
+      </div>
+    </div>
+  </header>
 
-<div class="search">
-<input id="riot" placeholder="Enter Riot ID (Player#TAG)">
-<button onclick="searchPlayer()">Search</button>
+  <div id="arena">
+    <!-- targets injected here -->
+
+    <div id="reticle">
+      <svg viewBox="0 0 26 26">
+        <circle cx="13" cy="13" r="9" stroke="#4dd9ff" stroke-width="1.4" fill="none" opacity="0.8"/>
+        <line x1="13" y1="0" x2="13" y2="6" stroke="#4dd9ff" stroke-width="1.6"/>
+        <line x1="13" y1="20" x2="13" y2="26" stroke="#4dd9ff" stroke-width="1.6"/>
+        <line x1="0" y1="13" x2="6" y2="13" stroke="#4dd9ff" stroke-width="1.6"/>
+        <line x1="20" y1="13" x2="26" y2="13" stroke="#4dd9ff" stroke-width="1.6"/>
+      </svg>
+    </div>
+
+    <!-- START OVERLAY -->
+    <div class="overlay" id="start-overlay">
+      <div class="card">
+        <div class="eyebrow">CALIBRATE</div>
+        <h2 class="display">READY UP</h2>
+
+        <div class="setting-row">
+          <span class="label">TARGET SIZE</span>
+          <div class="choice-group" id="size-group">
+            <button class="choice" data-size="60">LARGE</button>
+            <button class="choice active" data-size="42">MEDIUM</button>
+            <button class="choice" data-size="28">SMALL</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <span class="label">SESSION LENGTH</span>
+          <div class="choice-group" id="duration-group">
+            <button class="choice" data-duration="15">15s</button>
+            <button class="choice active" data-duration="30">30s</button>
+            <button class="choice" data-duration="60">60s</button>
+          </div>
+        </div>
+
+        <button class="go-btn" id="start-btn">START</button>
+      </div>
+    </div>
+
+    <!-- RESULTS OVERLAY -->
+    <div class="overlay hidden" id="results-overlay">
+      <div class="card">
+        <div class="eyebrow">SESSION COMPLETE</div>
+        <h2 class="display">RESULTS</h2>
+        <div class="results-grid">
+          <div class="result-item hero">
+            <span class="label">HITS</span>
+            <span class="value" id="res-score">0</span>
+          </div>
+          <div class="result-item">
+            <span class="label">ACCURACY</span>
+            <span class="value" id="res-acc">0%</span>
+          </div>
+          <div class="result-item">
+            <span class="label">AVG REACTION</span>
+            <span class="value" id="res-avg">0ms</span>
+          </div>
+          <div class="result-item">
+            <span class="label">BEST REACTION</span>
+            <span class="value" id="res-best">0ms</span>
+          </div>
+        </div>
+        <button class="go-btn" id="retry-btn">RUN IT BACK</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>CLICK TARGETS BEFORE THEY DECAY · MISSED CLICKS COUNT AGAINST ACCURACY</footer>
 </div>
-
-<div class="container">
-
-<div class="grid">
-
-<div class="card">
-<h2>Rank</h2>
-<div class="value" id="rank">-</div>
-</div>
-
-<div class="card">
-<h2>K/D</h2>
-<div class="value" id="kd">-</div>
-</div>
-
-<div class="card">
-<h2>Win Rate</h2>
-<div class="value" id="winrate">-</div>
-</div>
-
-<div class="card">
-<h2>Headshot %</h2>
-<div class="value" id="head">-</div>
-</div>
-
-<div class="card">
-<h2>Body %</h2>
-<div class="value" id="body">-</div>
-</div>
-
-<div class="card">
-<h2>Leg %</h2>
-<div class="value" id="leg">-</div>
-</div>
-
-<div class="card">
-<h2>Favorite Agent</h2>
-<div class="value" id="agent">-</div>
-</div>
-
-<div class="card">
-<h2>Favorite Weapon</h2>
-<div class="value" id="weapon">-</div>
-</div>
-
-<div class="card">
-<h2>Matches</h2>
-<div class="value" id="matches">-</div>
-</div>
-
-</div>
-
-</div>
-
-<footer>
-Made by Siu3948
-</footer>
 
 <script>
+(function () {
+  const arena = document.getElementById('arena');
+  const reticle = document.getElementById('reticle');
+  const startOverlay = document.getElementById('start-overlay');
+  const resultsOverlay = document.getElementById('results-overlay');
+  const startBtn = document.getElementById('start-btn');
+  const retryBtn = document.getElementById('retry-btn');
 
-function searchPlayer(){
+  const scoreEl = document.getElementById('score-value');
+  const accEl = document.getElementById('acc-value');
+  const avgEl = document.getElementById('avg-value');
+  const timeEl = document.getElementById('time-value');
 
-let name=document.getElementById("riot").value;
+  let targetSize = 42;
+  let duration = 30;
 
-if(name==""){
-    alert("Enter a Riot ID!");
-    return;
-}
+  document.getElementById('size-group').addEventListener('click', (e) => {
+    if (!e.target.matches('.choice')) return;
+    document.querySelectorAll('#size-group .choice').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    targetSize = parseInt(e.target.dataset.size, 10);
+  });
 
-// Fake data for now.
-// Next we'll replace this with REAL Valorant stats.
+  document.getElementById('duration-group').addEventListener('click', (e) => {
+    if (!e.target.matches('.choice')) return;
+    document.querySelectorAll('#duration-group .choice').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    duration = parseInt(e.target.dataset.duration, 10);
+  });
 
-document.getElementById("rank").innerHTML="Immortal 3";
-document.getElementById("kd").innerHTML="1.42";
-document.getElementById("winrate").innerHTML="62%";
-document.getElementById("head").innerHTML="31%";
-document.getElementById("body").innerHTML="63%";
-document.getElementById("leg").innerHTML="6%";
-document.getElementById("agent").innerHTML="Jett";
-document.getElementById("weapon").innerHTML="Vandal";
-document.getElementById("matches").innerHTML="247";
+  // custom reticle follows mouse within arena
+  arena.addEventListener('mouseenter', () => { reticle.style.display = 'block'; });
+  arena.addEventListener('mouseleave', () => { reticle.style.display = 'none'; });
+  arena.addEventListener('mousemove', (e) => {
+    reticle.style.left = e.clientX + 'px';
+    reticle.style.top = e.clientY + 'px';
+  });
 
-}
+  let state = null;
+  let spawnTimer = null;
+  let countdownTimer = null;
 
+  function resetHUD() {
+    scoreEl.textContent = '0';
+    accEl.textContent = '—';
+    avgEl.textContent = '—';
+    timeEl.textContent = String(duration);
+    timeEl.classList.remove('low');
+  }
+
+  function startGame() {
+    state = {
+      score: 0,
+      hits: 0,
+      misses: 0,
+      reactionTimes: [],
+      timeLeft: duration,
+      activeTarget: null,
+      running: true
+    };
+    resetHUD();
+    startOverlay.classList.add('hidden');
+    resultsOverlay.classList.add('hidden');
+    spawnTarget();
+    countdownTimer = setInterval(tickClock, 1000);
+  }
+
+  function tickClock() {
+    if (!state || !state.running) return;
+    state.timeLeft -= 1;
+    timeEl.textContent = String(state.timeLeft);
+    if (state.timeLeft <= 5) timeEl.classList.add('low');
+    if (state.timeLeft <= 0) endGame();
+  }
+
+  function randomPos(size) {
+    const rect = arena.getBoundingClientRect();
+    const pad = 16;
+    const x = pad + Math.random() * (rect.width - size - pad * 2);
+    const y = pad + Math.random() * (rect.height - size - pad * 2);
+    return { x, y };
+  }
+
+  function spawnTarget() {
+    if (!state || !state.running) return;
+    clearTimeout(spawnTimer);
+
+    // remove existing target if still present (timed out)
+    if (state.activeTarget && state.activeTarget.el.parentNode) {
+      state.activeTarget.el.remove();
+    }
+
+    const size = targetSize;
+    const pos = randomPos(size);
+    const el = document.createElement('div');
+    el.className = 'target';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    el.style.left = pos.x + 'px';
+    el.style.top = pos.y + 'px';
+
+    const life = 1400; // ms before it despawns on its own
+    const spawnedAt = performance.now();
+
+    const ring = document.createElement('div');
+    ring.className = 'decay-ring';
+    el.appendChild(ring);
+    const core = document.createElement('div');
+    core.className = 'core';
+    el.appendChild(core);
+
+    let raf;
+    function animateDecay() {
+      const elapsed = performance.now() - spawnedAt;
+      const pct = Math.max(0, 1 - elapsed / life);
+      ring.style.background = `conic-gradient(rgba(255,179,71,0.9) ${pct * 360}deg, transparent 0deg)`;
+      if (pct <= 0) {
+        missTimeout();
+        return;
+      }
+      raf = requestAnimationFrame(animateDecay);
+    }
+    raf = requestAnimationFrame(animateDecay);
+
+    function missTimeout() {
+      cancelAnimationFrame(raf);
+      if (el.parentNode) el.remove();
+      state.activeTarget = null;
+      if (state.running) spawnTarget();
+    }
+
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cancelAnimationFrame(raf);
+      const reaction = Math.round(performance.now() - spawnedAt);
+      registerHit(pos, size, reaction);
+      if (el.parentNode) el.remove();
+      state.activeTarget = null;
+      if (state.running) spawnTarget();
+    });
+
+    arena.appendChild(el);
+    state.activeTarget = { el, raf, cancelFn: missTimeout };
+  }
+
+  function registerHit(pos, size, reaction) {
+    state.hits += 1;
+    state.score += 1;
+    state.reactionTimes.push(reaction);
+    scoreEl.textContent = String(state.score);
+    updateAccuracy();
+    updateAvg();
+    spawnBurst(pos, size);
+  }
+
+  function registerMiss() {
+    state.misses += 1;
+    updateAccuracy();
+  }
+
+  function updateAccuracy() {
+    const total = state.hits + state.misses;
+    const pct = total === 0 ? 0 : Math.round((state.hits / total) * 100);
+    accEl.textContent = total === 0 ? '—' : pct + '%';
+  }
+
+  function updateAvg() {
+    if (state.reactionTimes.length === 0) { avgEl.textContent = '—'; return; }
+    const avg = Math.round(state.reactionTimes.reduce((a, b) => a + b, 0) / state.reactionTimes.length);
+    avgEl.textContent = avg + 'ms';
+  }
+
+  function spawnBurst(pos, size) {
+    const burst = document.createElement('div');
+    burst.className = 'burst';
+    const bsize = size * 1.4;
+    burst.style.width = bsize + 'px';
+    burst.style.height = bsize + 'px';
+    burst.style.left = (pos.x - (bsize - size) / 2) + 'px';
+    burst.style.top = (pos.y - (bsize - size) / 2) + 'px';
+    arena.appendChild(burst);
+    setTimeout(() => burst.remove(), 380);
+  }
+
+  function spawnMissMark(x, y) {
+    const mark = document.createElement('div');
+    mark.className = 'miss-x';
+    mark.textContent = '×';
+    mark.style.left = (x - 5) + 'px';
+    mark.style.top = (y - 10) + 'px';
+    arena.appendChild(mark);
+    setTimeout(() => mark.remove(), 500);
+  }
+
+  // clicking empty arena space counts as a miss
+  arena.addEventListener('click', (e) => {
+    if (!state || !state.running) return;
+    if (e.target === arena) {
+      registerMiss();
+      const rect = arena.getBoundingClientRect();
+      spawnMissMark(e.clientX - rect.left, e.clientY - rect.top);
+    }
+  });
+
+  function endGame() {
+    state.running = false;
+    clearInterval(countdownTimer);
+    if (state.activeTarget) {
+      cancelAnimationFrame(state.activeTarget.raf);
+      if (state.activeTarget.el.parentNode) state.activeTarget.el.remove();
+    }
+
+    const total = state.hits + state.misses;
+    const acc = total === 0 ? 0 : Math.round((state.hits / total) * 100);
+    const avg = state.reactionTimes.length
+      ? Math.round(state.reactionTimes.reduce((a, b) => a + b, 0) / state.reactionTimes.length)
+      : 0;
+    const best = state.reactionTimes.length ? Math.min(...state.reactionTimes) : 0;
+
+    document.getElementById('res-score').textContent = String(state.hits);
+    document.getElementById('res-acc').textContent = acc + '%';
+    document.getElementById('res-avg').textContent = avg + 'ms';
+    document.getElementById('res-best').textContent = best + 'ms';
+
+    resultsOverlay.classList.remove('hidden');
+  }
+
+  startBtn.addEventListener('click', startGame);
+  retryBtn.addEventListener('click', () => {
+    resultsOverlay.classList.add('hidden');
+    startGame();
+  });
+})();
 </script>
 
 </body>
