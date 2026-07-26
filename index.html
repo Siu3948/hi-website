@@ -212,3 +212,546 @@
     align-items: center;
     justify-content: center;
     background: rgba(10,14,16,0.92);
+    z-index: 20;
+  }
+  .card {
+    width: min(420px, 88vw);
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    padding: 32px;
+    text-align: center;
+  }
+  .card .eyebrow {
+    font-size: 10px;
+    letter-spacing: 3px;
+    color: var(--cyan);
+    margin-bottom: 6px;
+  }
+  .card h2 {
+    font-family: 'Oswald', sans-serif;
+    font-size: 30px;
+    letter-spacing: 2px;
+    margin-bottom: 20px;
+  }
+
+  .setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+    text-align: left;
+  }
+  .setting-row .label { font-size: 12px; color: var(--muted); letter-spacing: 1px; }
+  .choice-group { display: flex; gap: 6px; }
+  .choice {
+    background: transparent;
+    border: 1px solid var(--panel-line);
+    color: var(--muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .choice:hover { border-color: var(--cyan-dim); color: var(--text); }
+  .choice.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: rgba(77,217,255,0.08);
+  }
+
+  .go-btn {
+    width: 100%;
+    margin-top: 22px;
+    padding: 14px;
+    background: var(--cyan);
+    border: none;
+    color: #04191f;
+    font-family: 'Oswald', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 3px;
+    cursor: pointer;
+    transition: filter 0.15s ease;
+  }
+  .go-btn:hover { filter: brightness(1.12); }
+
+  .results-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 22px;
+  }
+  .result-item {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid var(--panel-line);
+    padding: 12px;
+  }
+  .result-item .label { font-size: 9px; letter-spacing: 2px; color: var(--muted); display: block; margin-bottom: 4px; }
+  .result-item .value { font-family: 'Oswald', sans-serif; font-size: 24px; color: var(--text); }
+  .result-item.hero .value { color: var(--cyan); }
+
+  .hidden { display: none !important; }
+
+  footer {
+    text-align: center;
+    padding: 8px;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 1px;
+    background: var(--panel);
+    border-top: 1px solid var(--panel-line);
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header>
+    <div class="brand">
+      <h1 class="display">RANGE</h1>
+      <span class="eyebrow">AIM TRAINER</span>
+    </div>
+    <div class="hud-stats">
+      <div class="stat">
+        <span class="label">SCORE</span>
+        <span class="value" id="score-value">0</span>
+      </div>
+      <div class="stat">
+        <span class="label">ACCURACY</span>
+        <span class="value" id="acc-value">—</span>
+      </div>
+      <div class="stat">
+        <span class="label">AVG MS</span>
+        <span class="value" id="avg-value">—</span>
+      </div>
+      <div class="stat accent">
+        <span class="label">TIME</span>
+        <span class="value" id="time-value">30</span>
+      </div>
+    </div>
+  </header>
+
+  <button id="pause-btn" class="hidden">⏸ SETTINGS</button>
+
+  <div id="arena">
+    <div id="world"></div>
+    <!-- targets injected here -->
+
+    <div id="lock-hint">
+      CLICK TO ENTER FIRST-PERSON
+      <span>your view will follow the mouse — press ESC anytime to pause</span>
+    </div>
+
+    <div id="reticle">
+      <svg viewBox="0 0 26 26">
+        <circle cx="13" cy="13" r="9" stroke="#4dd9ff" stroke-width="1.4" fill="none" opacity="0.8"/>
+        <line x1="13" y1="0" x2="13" y2="6" stroke="#4dd9ff" stroke-width="1.6"/>
+        <line x1="13" y1="20" x2="13" y2="26" stroke="#4dd9ff" stroke-width="1.6"/>
+        <line x1="0" y1="13" x2="6" y2="13" stroke="#4dd9ff" stroke-width="1.6"/>
+        <line x1="20" y1="13" x2="26" y2="13" stroke="#4dd9ff" stroke-width="1.6"/>
+      </svg>
+    </div>
+
+    <!-- START OVERLAY -->
+    <div class="overlay" id="start-overlay">
+      <div class="card">
+        <div class="eyebrow" id="overlay-eyebrow">CALIBRATE</div>
+        <h2 class="display" id="overlay-title">READY UP</h2>
+
+        <div class="setting-row">
+          <span class="label">TARGET SIZE</span>
+          <div class="choice-group" id="size-group">
+            <button class="choice" data-size="60">LARGE</button>
+            <button class="choice active" data-size="42">MEDIUM</button>
+            <button class="choice" data-size="28">SMALL</button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <span class="label">SESSION LENGTH</span>
+          <div class="choice-group" id="duration-group">
+            <button class="choice" data-duration="15">15s</button>
+            <button class="choice active" data-duration="30">30s</button>
+            <button class="choice" data-duration="60">60s</button>
+          </div>
+        </div>
+
+        <button class="go-btn" id="start-btn">START</button>
+        <button class="go-btn" id="resume-btn" style="display:none; margin-top:10px; background:transparent; border:1px solid var(--panel-line); color:var(--text);">RESUME</button>
+      </div>
+    </div>
+
+    <!-- RESULTS OVERLAY -->
+    <div class="overlay hidden" id="results-overlay">
+      <div class="card">
+        <div class="eyebrow">SESSION COMPLETE</div>
+        <h2 class="display">RESULTS</h2>
+        <div class="results-grid">
+          <div class="result-item hero">
+            <span class="label">HITS</span>
+            <span class="value" id="res-score">0</span>
+          </div>
+          <div class="result-item">
+            <span class="label">ACCURACY</span>
+            <span class="value" id="res-acc">0%</span>
+          </div>
+          <div class="result-item">
+            <span class="label">AVG REACTION</span>
+            <span class="value" id="res-avg">0ms</span>
+          </div>
+          <div class="result-item">
+            <span class="label">BEST REACTION</span>
+            <span class="value" id="res-best">0ms</span>
+          </div>
+        </div>
+        <button class="go-btn" id="retry-btn">RUN IT BACK</button>
+      </div>
+    </div>
+  </div>
+
+  <footer>CLICK TARGETS BEFORE THEY DECAY · MISSED CLICKS COUNT AGAINST ACCURACY</footer>
+</div>
+
+<script>
+(function () {
+  const arena = document.getElementById('arena');
+  const world = document.getElementById('world');
+  const reticle = document.getElementById('reticle');
+  const lockHint = document.getElementById('lock-hint');
+  const pauseBtn = document.getElementById('pause-btn');
+  const startOverlay = document.getElementById('start-overlay');
+  const resultsOverlay = document.getElementById('results-overlay');
+  const startBtn = document.getElementById('start-btn');
+  const resumeBtn = document.getElementById('resume-btn');
+  const retryBtn = document.getElementById('retry-btn');
+  const overlayEyebrow = document.getElementById('overlay-eyebrow');
+  const overlayTitle = document.getElementById('overlay-title');
+
+  const scoreEl = document.getElementById('score-value');
+  const accEl = document.getElementById('acc-value');
+  const avgEl = document.getElementById('avg-value');
+  const timeEl = document.getElementById('time-value');
+
+  let targetSize = 42;
+  let duration = 30;
+
+  document.getElementById('size-group').addEventListener('click', (e) => {
+    if (!e.target.matches('.choice')) return;
+    document.querySelectorAll('#size-group .choice').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    targetSize = parseInt(e.target.dataset.size, 10);
+  });
+
+  document.getElementById('duration-group').addEventListener('click', (e) => {
+    if (!e.target.matches('.choice')) return;
+    document.querySelectorAll('#duration-group .choice').forEach(b => b.classList.remove('active'));
+    e.target.classList.add('active');
+    duration = parseInt(e.target.dataset.duration, 10);
+    // if paused mid-session, let the clock reflect the new duration choice
+    if (state && !state.running) timeEl.textContent = String(duration);
+  });
+
+  // ---------- first-person view (pointer lock) ----------
+  // reticle sits fixed at screen center; the WORLD pans opposite to mouse
+  // movement, so it feels like you're turning your view, not dragging a cursor.
+  let viewX = 0, viewY = 0; // accumulated look offset
+  const LOOK_SENS = 1; // px of world-pan per px of raw mouse movement
+  const MAX_LOOK = 260; // clamp how far the view can pan from center
+
+  function placeReticleCenter() {
+    const rect = arena.getBoundingClientRect();
+    reticle.style.left = (rect.left + rect.width / 2) + 'px';
+    reticle.style.top = (rect.top + rect.height / 2) + 'px';
+  }
+
+  function isLocked() {
+    return document.pointerLockElement === arena;
+  }
+
+  arena.addEventListener('click', () => {
+    if (!isLocked()) {
+      arena.requestPointerLock();
+    }
+  });
+
+  document.addEventListener('pointerlockchange', () => {
+    if (isLocked()) {
+      lockHint.classList.add('hidden');
+      reticle.style.display = 'block';
+      placeReticleCenter();
+      if (state && state.paused) resumeFromPause();
+    } else {
+      reticle.style.display = 'none';
+      if (state && state.running) pauseGame();
+      lockHint.classList.remove('hidden');
+    }
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!isLocked()) return;
+    viewX = Math.max(-MAX_LOOK, Math.min(MAX_LOOK, viewX + e.movementX * LOOK_SENS));
+    viewY = Math.max(-MAX_LOOK, Math.min(MAX_LOOK, viewY + e.movementY * LOOK_SENS));
+    world.style.transform = `translate(${-viewX}px, ${-viewY}px)`;
+  });
+
+  // ---------- game state ----------
+  let state = null;
+  let countdownTimer = null;
+
+  function resetHUD() {
+    scoreEl.textContent = '0';
+    accEl.textContent = '—';
+    avgEl.textContent = '—';
+    timeEl.textContent = String(duration);
+    timeEl.classList.remove('low');
+  }
+
+  function startGame() {
+    state = {
+      score: 0,
+      hits: 0,
+      misses: 0,
+      reactionTimes: [],
+      timeLeft: duration,
+      activeTarget: null,
+      running: true,
+      paused: false
+    };
+    resetHUD();
+    startOverlay.classList.add('hidden');
+    resultsOverlay.classList.add('hidden');
+    pauseBtn.classList.remove('hidden');
+    resumeBtn.style.display = 'none';
+    viewX = 0; viewY = 0;
+    world.style.transform = 'translate(0px, 0px)';
+    spawnTarget();
+    countdownTimer = setInterval(tickClock, 1000);
+    if (!isLocked()) arena.requestPointerLock();
+  }
+
+  // ---------- pause / settings without leaving the page ----------
+  function pauseGame() {
+    if (!state || !state.running) return;
+    state.running = false;
+    state.paused = true;
+    clearInterval(countdownTimer);
+    if (state.activeTarget) cancelAnimationFrame(state.activeTarget.raf);
+    overlayEyebrow.textContent = 'PAUSED';
+    overlayTitle.textContent = 'ADJUST SETTINGS';
+    startBtn.textContent = 'APPLY & RESTART';
+    resumeBtn.style.display = 'block';
+    startOverlay.classList.remove('hidden');
+  }
+
+  function resumeFromPause() {
+    if (!state || !state.paused) return;
+    state.paused = false;
+    state.running = true;
+    startOverlay.classList.add('hidden');
+    if (state.activeTarget) {
+      // give the in-flight target a fresh decay window rather than resuming mid-decay
+      if (state.activeTarget.el.parentNode) state.activeTarget.el.remove();
+      state.activeTarget = null;
+    }
+    spawnTarget();
+    countdownTimer = setInterval(tickClock, 1000);
+  }
+
+  resumeBtn.addEventListener('click', () => {
+    if (isLocked()) {
+      resumeFromPause();
+    } else {
+      arena.requestPointerLock(); // pointerlockchange handler will resume once locked
+    }
+  });
+
+  pauseBtn.addEventListener('click', () => {
+    if (isLocked()) document.exitPointerLock();
+    pauseGame();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && state && state.running) {
+      // ESC triggers the browser's own pointer-unlock; our pointerlockchange
+      // handler calls pauseGame() automatically, nothing else needed here.
+    }
+  });
+
+  function tickClock() {
+    if (!state || !state.running) return;
+    state.timeLeft -= 1;
+    timeEl.textContent = String(state.timeLeft);
+    if (state.timeLeft <= 5) timeEl.classList.add('low');
+    if (state.timeLeft <= 0) endGame();
+  }
+
+  function randomWorldPos(size) {
+    // spawn within the world layer's larger bounds so targets can appear
+    // as you look around, not just in the current viewport slice
+    const rect = arena.getBoundingClientRect();
+    const spanX = rect.width * 1.6;
+    const spanY = rect.height * 1.6;
+    const pad = 16;
+    const x = -spanX / 2 + pad + Math.random() * (spanX - size - pad * 2);
+    const y = -spanY / 2 + pad + Math.random() * (spanY - size - pad * 2);
+    return { x, y };
+  }
+
+  function spawnTarget() {
+    if (!state || !state.running) return;
+
+    if (state.activeTarget && state.activeTarget.el.parentNode) {
+      state.activeTarget.el.remove();
+    }
+
+    const size = targetSize;
+    const wpos = randomWorldPos(size);
+    const el = document.createElement('div');
+    el.className = 'target';
+    el.style.width = size + 'px';
+    el.style.height = size + 'px';
+    // position relative to arena center, offset by world position;
+    // world's translate handles the look-panning automatically since
+    // this element lives inside #world
+    const rect = arena.getBoundingClientRect();
+    el.style.left = (rect.width / 2 + wpos.x) + 'px';
+    el.style.top = (rect.height / 2 + wpos.y) + 'px';
+
+    const life = 1600;
+    const spawnedAt = performance.now();
+
+    const ring = document.createElement('div');
+    ring.className = 'decay-ring';
+    el.appendChild(ring);
+    const core = document.createElement('div');
+    core.className = 'core';
+    el.appendChild(core);
+
+    let raf;
+    function animateDecay() {
+      const elapsed = performance.now() - spawnedAt;
+      const pct = Math.max(0, 1 - elapsed / life);
+      ring.style.background = `conic-gradient(rgba(255,179,71,0.9) ${pct * 360}deg, transparent 0deg)`;
+      if (pct <= 0) {
+        missTimeout();
+        return;
+      }
+      raf = requestAnimationFrame(animateDecay);
+    }
+    raf = requestAnimationFrame(animateDecay);
+
+    function missTimeout() {
+      cancelAnimationFrame(raf);
+      if (el.parentNode) el.remove();
+      state.activeTarget = null;
+      if (state.running) spawnTarget();
+    }
+
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      cancelAnimationFrame(raf);
+      const reaction = Math.round(performance.now() - spawnedAt);
+      registerHit(size, reaction);
+      if (el.parentNode) el.remove();
+      state.activeTarget = null;
+      if (state.running) spawnTarget();
+    });
+
+    world.appendChild(el);
+    state.activeTarget = { el, raf };
+  }
+
+  function registerHit(size, reaction) {
+    state.hits += 1;
+    state.score += 1;
+    state.reactionTimes.push(reaction);
+    scoreEl.textContent = String(state.score);
+    updateAccuracy();
+    updateAvg();
+    spawnBurst(size);
+  }
+
+  function registerMiss() {
+    state.misses += 1;
+    updateAccuracy();
+  }
+
+  function updateAccuracy() {
+    const total = state.hits + state.misses;
+    const pct = total === 0 ? 0 : Math.round((state.hits / total) * 100);
+    accEl.textContent = total === 0 ? '—' : pct + '%';
+  }
+
+  function updateAvg() {
+    if (state.reactionTimes.length === 0) { avgEl.textContent = '—'; return; }
+    const avg = Math.round(state.reactionTimes.reduce((a, b) => a + b, 0) / state.reactionTimes.length);
+    avgEl.textContent = avg + 'ms';
+  }
+
+  function spawnBurst(size) {
+    // burst at screen center, since that's always where hits land in FPS mode
+    const rect = arena.getBoundingClientRect();
+    const bsize = size * 1.4;
+    const burst = document.createElement('div');
+    burst.className = 'burst';
+    burst.style.width = bsize + 'px';
+    burst.style.height = bsize + 'px';
+    burst.style.left = (rect.width / 2 - bsize / 2) + 'px';
+    burst.style.top = (rect.height / 2 - bsize / 2) + 'px';
+    arena.appendChild(burst);
+    setTimeout(() => burst.remove(), 380);
+  }
+
+  // clicking with nothing under the reticle counts as a miss
+  arena.addEventListener('click', (e) => {
+    if (!isLocked() || !state || !state.running) return;
+    if (e.target === arena || e.target === world) {
+      registerMiss();
+    }
+  });
+
+  function endGame() {
+    state.running = false;
+    clearInterval(countdownTimer);
+    pauseBtn.classList.add('hidden');
+    if (state.activeTarget) {
+      cancelAnimationFrame(state.activeTarget.raf);
+      if (state.activeTarget.el.parentNode) state.activeTarget.el.remove();
+    }
+    if (isLocked()) document.exitPointerLock();
+
+    const total = state.hits + state.misses;
+    const acc = total === 0 ? 0 : Math.round((state.hits / total) * 100);
+    const avg = state.reactionTimes.length
+      ? Math.round(state.reactionTimes.reduce((a, b) => a + b, 0) / state.reactionTimes.length)
+      : 0;
+    const best = state.reactionTimes.length ? Math.min(...state.reactionTimes) : 0;
+
+    document.getElementById('res-score').textContent = String(state.hits);
+    document.getElementById('res-acc').textContent = acc + '%';
+    document.getElementById('res-avg').textContent = avg + 'ms';
+    document.getElementById('res-best').textContent = best + 'ms';
+
+    resultsOverlay.classList.remove('hidden');
+  }
+
+  startBtn.addEventListener('click', () => {
+    overlayEyebrow.textContent = 'CALIBRATE';
+    overlayTitle.textContent = 'READY UP';
+    startBtn.textContent = 'START';
+    startGame();
+  });
+  retryBtn.addEventListener('click', () => {
+    resultsOverlay.classList.add('hidden');
+    overlayEyebrow.textContent = 'CALIBRATE';
+    overlayTitle.textContent = 'READY UP';
+    startBtn.textContent = 'START';
+    startOverlay.classList.remove('hidden');
+    resumeBtn.style.display = 'none';
+  });
+})();
+</script>
+
+</body>
+</html>
