@@ -86,12 +86,58 @@
   #arena {
     position: relative;
     flex: 1;
-    background:
-      radial-gradient(circle at 50% 50%, rgba(77,217,255,0.035), transparent 60%),
-      repeating-linear-gradient(0deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 40px),
-      repeating-linear-gradient(90deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 1px, transparent 1px, transparent 40px);
+    overflow: hidden;
+    background: #05070a;
     cursor: none;
   }
+
+  #world {
+    position: absolute;
+    inset: -50%;
+    width: 200%;
+    height: 200%;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(77,217,255,0.05), transparent 60%),
+      repeating-linear-gradient(0deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 40px),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.025) 0px, rgba(255,255,255,0.025) 1px, transparent 1px, transparent 40px);
+    will-change: transform;
+  }
+
+  #lock-hint {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(5,7,10,0.6);
+    z-index: 15;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 2px;
+    color: var(--cyan);
+    font-size: 15px;
+    cursor: pointer;
+    text-align: center;
+  }
+  #lock-hint.hidden { display: none; }
+  #lock-hint span { display: block; font-size: 10px; color: var(--muted); margin-top: 8px; letter-spacing: 1px; }
+
+  /* pause / settings button, always reachable mid-session, no reload needed */
+  #pause-btn {
+    position: fixed;
+    top: 14px;
+    right: 24px;
+    z-index: 30;
+    background: var(--panel);
+    border: 1px solid var(--panel-line);
+    color: var(--text);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 2px;
+    padding: 8px 14px;
+    cursor: pointer;
+  }
+  #pause-btn:hover { border-color: var(--cyan-dim); color: var(--cyan); }
+  #pause-btn.hidden { display: none; }
 
   .target {
     position: absolute;
@@ -166,433 +212,3 @@
     align-items: center;
     justify-content: center;
     background: rgba(10,14,16,0.92);
-    z-index: 20;
-  }
-  .card {
-    width: min(420px, 88vw);
-    background: var(--panel);
-    border: 1px solid var(--panel-line);
-    padding: 32px;
-    text-align: center;
-  }
-  .card .eyebrow {
-    font-size: 10px;
-    letter-spacing: 3px;
-    color: var(--cyan);
-    margin-bottom: 6px;
-  }
-  .card h2 {
-    font-family: 'Oswald', sans-serif;
-    font-size: 30px;
-    letter-spacing: 2px;
-    margin-bottom: 20px;
-  }
-
-  .setting-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-    text-align: left;
-  }
-  .setting-row .label { font-size: 12px; color: var(--muted); letter-spacing: 1px; }
-  .choice-group { display: flex; gap: 6px; }
-  .choice {
-    background: transparent;
-    border: 1px solid var(--panel-line);
-    color: var(--muted);
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 12px;
-    padding: 6px 10px;
-    cursor: pointer;
-    transition: all 0.15s ease;
-  }
-  .choice:hover { border-color: var(--cyan-dim); color: var(--text); }
-  .choice.active {
-    border-color: var(--cyan);
-    color: var(--cyan);
-    background: rgba(77,217,255,0.08);
-  }
-
-  .go-btn {
-    width: 100%;
-    margin-top: 22px;
-    padding: 14px;
-    background: var(--cyan);
-    border: none;
-    color: #04191f;
-    font-family: 'Oswald', sans-serif;
-    font-size: 16px;
-    font-weight: 600;
-    letter-spacing: 3px;
-    cursor: pointer;
-    transition: filter 0.15s ease;
-  }
-  .go-btn:hover { filter: brightness(1.12); }
-
-  .results-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 14px;
-    margin-bottom: 22px;
-  }
-  .result-item {
-    background: rgba(255,255,255,0.02);
-    border: 1px solid var(--panel-line);
-    padding: 12px;
-  }
-  .result-item .label { font-size: 9px; letter-spacing: 2px; color: var(--muted); display: block; margin-bottom: 4px; }
-  .result-item .value { font-family: 'Oswald', sans-serif; font-size: 24px; color: var(--text); }
-  .result-item.hero .value { color: var(--cyan); }
-
-  .hidden { display: none !important; }
-
-  footer {
-    text-align: center;
-    padding: 8px;
-    font-size: 10px;
-    color: var(--muted);
-    letter-spacing: 1px;
-    background: var(--panel);
-    border-top: 1px solid var(--panel-line);
-  }
-</style>
-</head>
-<body>
-
-<div id="app">
-  <header>
-    <div class="brand">
-      <h1 class="display">RANGE</h1>
-      <span class="eyebrow">AIM TRAINER</span>
-    </div>
-    <div class="hud-stats">
-      <div class="stat">
-        <span class="label">SCORE</span>
-        <span class="value" id="score-value">0</span>
-      </div>
-      <div class="stat">
-        <span class="label">ACCURACY</span>
-        <span class="value" id="acc-value">—</span>
-      </div>
-      <div class="stat">
-        <span class="label">AVG MS</span>
-        <span class="value" id="avg-value">—</span>
-      </div>
-      <div class="stat accent">
-        <span class="label">TIME</span>
-        <span class="value" id="time-value">30</span>
-      </div>
-    </div>
-  </header>
-
-  <div id="arena">
-    <!-- targets injected here -->
-
-    <div id="reticle">
-      <svg viewBox="0 0 26 26">
-        <circle cx="13" cy="13" r="9" stroke="#4dd9ff" stroke-width="1.4" fill="none" opacity="0.8"/>
-        <line x1="13" y1="0" x2="13" y2="6" stroke="#4dd9ff" stroke-width="1.6"/>
-        <line x1="13" y1="20" x2="13" y2="26" stroke="#4dd9ff" stroke-width="1.6"/>
-        <line x1="0" y1="13" x2="6" y2="13" stroke="#4dd9ff" stroke-width="1.6"/>
-        <line x1="20" y1="13" x2="26" y2="13" stroke="#4dd9ff" stroke-width="1.6"/>
-      </svg>
-    </div>
-
-    <!-- START OVERLAY -->
-    <div class="overlay" id="start-overlay">
-      <div class="card">
-        <div class="eyebrow">CALIBRATE</div>
-        <h2 class="display">READY UP</h2>
-
-        <div class="setting-row">
-          <span class="label">TARGET SIZE</span>
-          <div class="choice-group" id="size-group">
-            <button class="choice" data-size="60">LARGE</button>
-            <button class="choice active" data-size="42">MEDIUM</button>
-            <button class="choice" data-size="28">SMALL</button>
-          </div>
-        </div>
-
-        <div class="setting-row">
-          <span class="label">SESSION LENGTH</span>
-          <div class="choice-group" id="duration-group">
-            <button class="choice" data-duration="15">15s</button>
-            <button class="choice active" data-duration="30">30s</button>
-            <button class="choice" data-duration="60">60s</button>
-          </div>
-        </div>
-
-        <button class="go-btn" id="start-btn">START</button>
-      </div>
-    </div>
-
-    <!-- RESULTS OVERLAY -->
-    <div class="overlay hidden" id="results-overlay">
-      <div class="card">
-        <div class="eyebrow">SESSION COMPLETE</div>
-        <h2 class="display">RESULTS</h2>
-        <div class="results-grid">
-          <div class="result-item hero">
-            <span class="label">HITS</span>
-            <span class="value" id="res-score">0</span>
-          </div>
-          <div class="result-item">
-            <span class="label">ACCURACY</span>
-            <span class="value" id="res-acc">0%</span>
-          </div>
-          <div class="result-item">
-            <span class="label">AVG REACTION</span>
-            <span class="value" id="res-avg">0ms</span>
-          </div>
-          <div class="result-item">
-            <span class="label">BEST REACTION</span>
-            <span class="value" id="res-best">0ms</span>
-          </div>
-        </div>
-        <button class="go-btn" id="retry-btn">RUN IT BACK</button>
-      </div>
-    </div>
-  </div>
-
-  <footer>CLICK TARGETS BEFORE THEY DECAY · MISSED CLICKS COUNT AGAINST ACCURACY</footer>
-</div>
-
-<script>
-(function () {
-  const arena = document.getElementById('arena');
-  const reticle = document.getElementById('reticle');
-  const startOverlay = document.getElementById('start-overlay');
-  const resultsOverlay = document.getElementById('results-overlay');
-  const startBtn = document.getElementById('start-btn');
-  const retryBtn = document.getElementById('retry-btn');
-
-  const scoreEl = document.getElementById('score-value');
-  const accEl = document.getElementById('acc-value');
-  const avgEl = document.getElementById('avg-value');
-  const timeEl = document.getElementById('time-value');
-
-  let targetSize = 42;
-  let duration = 30;
-
-  document.getElementById('size-group').addEventListener('click', (e) => {
-    if (!e.target.matches('.choice')) return;
-    document.querySelectorAll('#size-group .choice').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active');
-    targetSize = parseInt(e.target.dataset.size, 10);
-  });
-
-  document.getElementById('duration-group').addEventListener('click', (e) => {
-    if (!e.target.matches('.choice')) return;
-    document.querySelectorAll('#duration-group .choice').forEach(b => b.classList.remove('active'));
-    e.target.classList.add('active');
-    duration = parseInt(e.target.dataset.duration, 10);
-  });
-
-  // custom reticle follows mouse within arena
-  arena.addEventListener('mouseenter', () => { reticle.style.display = 'block'; });
-  arena.addEventListener('mouseleave', () => { reticle.style.display = 'none'; });
-  arena.addEventListener('mousemove', (e) => {
-    reticle.style.left = e.clientX + 'px';
-    reticle.style.top = e.clientY + 'px';
-  });
-
-  let state = null;
-  let spawnTimer = null;
-  let countdownTimer = null;
-
-  function resetHUD() {
-    scoreEl.textContent = '0';
-    accEl.textContent = '—';
-    avgEl.textContent = '—';
-    timeEl.textContent = String(duration);
-    timeEl.classList.remove('low');
-  }
-
-  function startGame() {
-    state = {
-      score: 0,
-      hits: 0,
-      misses: 0,
-      reactionTimes: [],
-      timeLeft: duration,
-      activeTarget: null,
-      running: true
-    };
-    resetHUD();
-    startOverlay.classList.add('hidden');
-    resultsOverlay.classList.add('hidden');
-    spawnTarget();
-    countdownTimer = setInterval(tickClock, 1000);
-  }
-
-  function tickClock() {
-    if (!state || !state.running) return;
-    state.timeLeft -= 1;
-    timeEl.textContent = String(state.timeLeft);
-    if (state.timeLeft <= 5) timeEl.classList.add('low');
-    if (state.timeLeft <= 0) endGame();
-  }
-
-  function randomPos(size) {
-    const rect = arena.getBoundingClientRect();
-    const pad = 16;
-    const x = pad + Math.random() * (rect.width - size - pad * 2);
-    const y = pad + Math.random() * (rect.height - size - pad * 2);
-    return { x, y };
-  }
-
-  function spawnTarget() {
-    if (!state || !state.running) return;
-    clearTimeout(spawnTimer);
-
-    // remove existing target if still present (timed out)
-    if (state.activeTarget && state.activeTarget.el.parentNode) {
-      state.activeTarget.el.remove();
-    }
-
-    const size = targetSize;
-    const pos = randomPos(size);
-    const el = document.createElement('div');
-    el.className = 'target';
-    el.style.width = size + 'px';
-    el.style.height = size + 'px';
-    el.style.left = pos.x + 'px';
-    el.style.top = pos.y + 'px';
-
-    const life = 1400; // ms before it despawns on its own
-    const spawnedAt = performance.now();
-
-    const ring = document.createElement('div');
-    ring.className = 'decay-ring';
-    el.appendChild(ring);
-    const core = document.createElement('div');
-    core.className = 'core';
-    el.appendChild(core);
-
-    let raf;
-    function animateDecay() {
-      const elapsed = performance.now() - spawnedAt;
-      const pct = Math.max(0, 1 - elapsed / life);
-      ring.style.background = `conic-gradient(rgba(255,179,71,0.9) ${pct * 360}deg, transparent 0deg)`;
-      if (pct <= 0) {
-        missTimeout();
-        return;
-      }
-      raf = requestAnimationFrame(animateDecay);
-    }
-    raf = requestAnimationFrame(animateDecay);
-
-    function missTimeout() {
-      cancelAnimationFrame(raf);
-      if (el.parentNode) el.remove();
-      state.activeTarget = null;
-      if (state.running) spawnTarget();
-    }
-
-    el.addEventListener('click', (e) => {
-      e.stopPropagation();
-      cancelAnimationFrame(raf);
-      const reaction = Math.round(performance.now() - spawnedAt);
-      registerHit(pos, size, reaction);
-      if (el.parentNode) el.remove();
-      state.activeTarget = null;
-      if (state.running) spawnTarget();
-    });
-
-    arena.appendChild(el);
-    state.activeTarget = { el, raf, cancelFn: missTimeout };
-  }
-
-  function registerHit(pos, size, reaction) {
-    state.hits += 1;
-    state.score += 1;
-    state.reactionTimes.push(reaction);
-    scoreEl.textContent = String(state.score);
-    updateAccuracy();
-    updateAvg();
-    spawnBurst(pos, size);
-  }
-
-  function registerMiss() {
-    state.misses += 1;
-    updateAccuracy();
-  }
-
-  function updateAccuracy() {
-    const total = state.hits + state.misses;
-    const pct = total === 0 ? 0 : Math.round((state.hits / total) * 100);
-    accEl.textContent = total === 0 ? '—' : pct + '%';
-  }
-
-  function updateAvg() {
-    if (state.reactionTimes.length === 0) { avgEl.textContent = '—'; return; }
-    const avg = Math.round(state.reactionTimes.reduce((a, b) => a + b, 0) / state.reactionTimes.length);
-    avgEl.textContent = avg + 'ms';
-  }
-
-  function spawnBurst(pos, size) {
-    const burst = document.createElement('div');
-    burst.className = 'burst';
-    const bsize = size * 1.4;
-    burst.style.width = bsize + 'px';
-    burst.style.height = bsize + 'px';
-    burst.style.left = (pos.x - (bsize - size) / 2) + 'px';
-    burst.style.top = (pos.y - (bsize - size) / 2) + 'px';
-    arena.appendChild(burst);
-    setTimeout(() => burst.remove(), 380);
-  }
-
-  function spawnMissMark(x, y) {
-    const mark = document.createElement('div');
-    mark.className = 'miss-x';
-    mark.textContent = '×';
-    mark.style.left = (x - 5) + 'px';
-    mark.style.top = (y - 10) + 'px';
-    arena.appendChild(mark);
-    setTimeout(() => mark.remove(), 500);
-  }
-
-  // clicking empty arena space counts as a miss
-  arena.addEventListener('click', (e) => {
-    if (!state || !state.running) return;
-    if (e.target === arena) {
-      registerMiss();
-      const rect = arena.getBoundingClientRect();
-      spawnMissMark(e.clientX - rect.left, e.clientY - rect.top);
-    }
-  });
-
-  function endGame() {
-    state.running = false;
-    clearInterval(countdownTimer);
-    if (state.activeTarget) {
-      cancelAnimationFrame(state.activeTarget.raf);
-      if (state.activeTarget.el.parentNode) state.activeTarget.el.remove();
-    }
-
-    const total = state.hits + state.misses;
-    const acc = total === 0 ? 0 : Math.round((state.hits / total) * 100);
-    const avg = state.reactionTimes.length
-      ? Math.round(state.reactionTimes.reduce((a, b) => a + b, 0) / state.reactionTimes.length)
-      : 0;
-    const best = state.reactionTimes.length ? Math.min(...state.reactionTimes) : 0;
-
-    document.getElementById('res-score').textContent = String(state.hits);
-    document.getElementById('res-acc').textContent = acc + '%';
-    document.getElementById('res-avg').textContent = avg + 'ms';
-    document.getElementById('res-best').textContent = best + 'ms';
-
-    resultsOverlay.classList.remove('hidden');
-  }
-
-  startBtn.addEventListener('click', startGame);
-  retryBtn.addEventListener('click', () => {
-    resultsOverlay.classList.add('hidden');
-    startGame();
-  });
-})();
-</script>
-
-</body>
-</html>
